@@ -55,6 +55,14 @@ function startCurrentSong() {
     }
 }
 
+function setVolume(value, volumeSlider, volumeIcon) {
+    const volume = Math.max(0, Math.min(100, Number(value) || 0));
+    currentSong.volume = volume / 100;
+    volumeSlider.value = volume;
+    volumeSlider.style.setProperty("--vol-pct", volume + "%");
+    volumeIcon.src = volume > 0 ? "IMG/volume.svg" : "IMG/mute.svg";
+}
+
 async function getFolderMeta(folder) {
     if (folderMetaCache.has(folder)) return folderMetaCache.get(folder);
     let meta = {
@@ -82,17 +90,22 @@ async function getFolderMeta(folder) {
 // ===================== QUEUE LOADING =====================
 async function getSongs(folder) {
     currFolder = folder;
-    let a = await fetch(`/${folder}/`);
-    let response = await a.text();
-    let div = document.createElement("div");
-    div.innerHTML = response;
-    let as = div.getElementsByTagName("a");
     songs = [];
-    for (let index = 0; index < as.length; index++) {
-        const element = as[index];
-        if (element.href.endsWith(".mp3")) {
-            songs.push(element.href.split(`/${folder}/`)[1]);
+    try {
+        let a = await fetch(`/${folder}/`);
+        if (!a.ok) throw new Error(`Failed to load folder: ${folder}`);
+        let response = await a.text();
+        let div = document.createElement("div");
+        div.innerHTML = response;
+        let as = div.getElementsByTagName("a");
+        for (let index = 0; index < as.length; index++) {
+            const element = as[index];
+            if (element.href.endsWith(".mp3")) {
+                songs.push(element.href.split(`/${folder}/`)[1]);
+            }
         }
+    } catch (e) {
+        console.error(e);
     }
 
     renderSidebarList();
@@ -203,12 +216,18 @@ function playPrevious() {
 
 // ===================== ALBUM CARDS (home view) =====================
 async function displayAlbums() {
-    let a = await fetch(`/Songs/`);
-    let response = await a.text();
-    let div = document.createElement("div");
-    div.innerHTML = response;
-    let anchors = Array.from(div.getElementsByTagName("a"));
     let cardContainer = document.querySelector(".cardContainer");
+    let anchors = [];
+    try {
+        let a = await fetch(`/Songs/`);
+        if (!a.ok) throw new Error("Failed to load Songs folder");
+        let response = await a.text();
+        let div = document.createElement("div");
+        div.innerHTML = response;
+        anchors = Array.from(div.getElementsByTagName("a"));
+    } catch (e) {
+        console.error(e);
+    }
     cardContainer.innerHTML = "";
 
     for (const e of anchors) {
@@ -305,7 +324,7 @@ function renderTrackList(folder, meta) {
         list.appendChild(row);
 
         // Fetch duration lazily without blocking the render
-        const probe = new Audio(`/${folder === "ncs" ? "Songs/ncs" : `Songs/${folder}`}/${song}`);
+        const probe = new Audio(`/Songs/${folder}/${song}`);
         probe.addEventListener("loadedmetadata", () => {
             row.querySelector(".track-duration").innerHTML = secondsToMinutesSeconds(probe.duration);
         });
@@ -382,12 +401,21 @@ async function main() {
     });
 
     // Sidebar open/close (mobile)
-    document.querySelector("#hamburgerBtn").addEventListener("click", () => {
-        document.querySelector("#sidebar").classList.add("open");
-    });
-    document.querySelector("#closeSidebar").addEventListener("click", () => {
-        document.querySelector("#sidebar").classList.remove("open");
-    });
+    const sidebar = document.querySelector("#sidebar");
+    const overlay = document.querySelector("#overlay");
+
+    function openSidebar() {
+        sidebar.classList.add("open");
+        overlay.classList.add("active");
+    }
+    function closeSidebar() {
+        sidebar.classList.remove("open");
+        overlay.classList.remove("active");
+    }
+
+    document.querySelector("#hamburgerBtn").addEventListener("click", openSidebar);
+    document.querySelector("#closeSidebar").addEventListener("click", closeSidebar);
+    overlay.addEventListener("click", closeSidebar);
 
     // Previous / Next
     document.querySelector("#previous").addEventListener("click", playPrevious);
@@ -406,32 +434,22 @@ async function main() {
     // Volume slider (live, matches --vol-pct fill + mute icon)
     const volumeSlider = document.querySelector("#volumeSlider");
     const volumeIcon = document.querySelector("#volumeIcon");
-    currentSong.volume = volumeSlider.value / 100;
-    volumeSlider.style.setProperty("--vol-pct", volumeSlider.value + "%");
+    setVolume(volumeSlider.value, volumeSlider, volumeIcon);
 
     volumeSlider.addEventListener("input", (e) => {
         const val = parseInt(e.target.value, 10);
-        currentSong.volume = val / 100;
-        e.target.style.setProperty("--vol-pct", val + "%");
         if (val > 0) {
             lastVolume = val;
-            volumeIcon.src = volumeIcon.src.replace("mute.svg", "volume.svg");
-        } else {
-            volumeIcon.src = volumeIcon.src.replace("volume.svg", "mute.svg");
         }
+        setVolume(val, volumeSlider, volumeIcon);
     });
 
     volumeIcon.addEventListener("click", () => {
-        if (volumeIcon.src.includes("volume.svg")) {
-            volumeIcon.src = volumeIcon.src.replace("volume.svg", "mute.svg");
-            currentSong.volume = 0;
-            volumeSlider.value = 0;
-            volumeSlider.style.setProperty("--vol-pct", "0%");
+        if (currentSong.volume > 0) {
+            lastVolume = Number(volumeSlider.value) || lastVolume;
+            setVolume(0, volumeSlider, volumeIcon);
         } else {
-            volumeIcon.src = volumeIcon.src.replace("mute.svg", "volume.svg");
-            currentSong.volume = lastVolume / 100;
-            volumeSlider.value = lastVolume;
-            volumeSlider.style.setProperty("--vol-pct", lastVolume + "%");
+            setVolume(lastVolume || 70, volumeSlider, volumeIcon);
         }
     });
 
@@ -454,4 +472,4 @@ async function main() {
         playMusic(songs[Math.floor(Math.random() * songs.length)]);
     });
 }
-main() 
+main()
