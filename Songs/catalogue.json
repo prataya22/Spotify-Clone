@@ -1,0 +1,62 @@
+[
+    {
+        "folder": "sleep_songs",
+        "title": "Sleep Songs",
+        "description": "Songs for you",
+        "color": "#5038a0"
+    },
+    {
+        "folder": "Diljit",
+        "title": "Diljit Dosanjh",
+        "description": "Diljit Dosanjh hits",
+        "color": "#e05c0a"
+    },
+    {
+        "folder": "Angry_(mood)",
+        "title": "Angry Mood",
+        "description": "Calm your Anger",
+        "color": "#c0392b"
+    },
+    {
+        "folder": "Bright_(mood)",
+        "title": "Bright Songs",
+        "description": "Bright Songs for you",
+        "color": "#f39c12"
+    },
+    {
+        "folder": "Chill_(mood)",
+        "title": "Just Chill",
+        "description": "Yes, Just Chill",
+        "color": "#1a6fa8"
+    },
+    {
+        "folder": "Dark_(mood)",
+        "title": "Dark Horse",
+        "description": "Dark Songs for you",
+        "color": "#2c2c54"
+    },
+    {
+        "folder": "Funky_(mood)",
+        "title": "Go Funky",
+        "description": "Lets go Funky",
+        "color": "#6c3483"
+    },
+    {
+        "folder": "Love_(mood)",
+        "title": "I Love You",
+        "description": "Love is in the air",
+        "color": "#c0392b"
+    },
+    {
+        "folder": "Uplifting_(mood)",
+        "title": "Get Up",
+        "description": "You can do it!",
+        "color": "#1DB954"
+    },
+    {
+        "folder": "karan aujla",
+        "title": "Karan Aujla",
+        "description": "Karan Aujla for you",
+        "color": "#117a65"
+    }
+]

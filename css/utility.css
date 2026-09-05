@@ -1,0 +1,43 @@
+/* ===== UTILITY CLASSES ===== */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+
+.bg-black { background-color: #000; color: #fff; }
+.bg-grey { background-color: #121212; }
+
+.invert { filter: invert(1); }
+
+.rounded { border-radius: 7px; }
+.rounded-full { border-radius: 9999px; }
+
+.m-1 { margin: 5px; }
+.p-1 { padding: 10px; }
+
+/* Opacity transitions */
+.fade { transition: opacity 0.2s ease; }
+
+/* Text helpers */
+.text-muted { color: #A7A7A7; }
+.text-green { color: #1DB954; }
+.text-bold { font-weight: 700; }
+.text-sm { font-size: 12px; }
+.text-xs { font-size: 11px; }
+
+/* Overlay for mobile sidebar */
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 199;
+    backdrop-filter: blur(2px);
+}
+
+.overlay.active {
+    display: block;
+}
