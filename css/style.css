@@ -1201,6 +1201,21 @@ body {
     fill: var(--spotify-green);
 }
 
+.track-row.playing .track-play-icon {
+    animation: trackPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes trackPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.12);
+        opacity: 0.85;
+    }
+}
+
 /* Track info cell */
 .track-info {
     display: flex;

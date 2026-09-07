@@ -34,9 +34,13 @@ function trackDisplayName(track) {
     return decodeURI(track).replace(/\.[^/.]+$/, "");
 }
 
+function resolveAssetPath(src) {
+    return new URL(src.replace(/^\/+/, ""), document.baseURI).href;
+}
+
 function setPlaybarArt(src) {
     const artImg = document.querySelector("#albumArtImg");
-    const requestedSrc = new URL(src, document.baseURI).href;
+    const requestedSrc = resolveAssetPath(src);
     artImg.onerror = () => {
         if (artImg.src !== requestedSrc) return;
         artImg.onerror = null;
@@ -45,13 +49,49 @@ function setPlaybarArt(src) {
     artImg.src = requestedSrc;
 }
 
+function syncPlaybackUiState(activeTrackName = null) {
+    const mainPlay = document.querySelector("#play");
+    const isPlaying = !!currentSong.src && !currentSong.paused && !currentSong.ended;
+    if (mainPlay) {
+        mainPlay.src = isPlaying ? "IMG/pause.svg" : "IMG/play.svg";
+    }
+
+    const currentTrack = activeTrackName ?? (currentSong.src ? normalizeTrackName(currentSong.src) : null);
+
+    document.querySelectorAll(".track-row").forEach(row => {
+        const rowIsCurrent = normalizeTrackName(row.dataset.track) === currentTrack;
+        row.classList.toggle("playing", rowIsCurrent && isPlaying);
+        const playIcon = row.querySelector(".track-play-icon");
+        if (playIcon) {
+            playIcon.innerHTML = getTrackPlayIconMarkup(rowIsCurrent && isPlaying);
+        }
+    });
+
+    document.querySelectorAll(".songList li").forEach(li => {
+        const liTrack = normalizeTrackName(decodeURIComponent(li.dataset.track || ""));
+        const liIsCurrent = liTrack === currentTrack;
+        const liPlayNow = li.querySelector(".playnow");
+        const liSpan = li.querySelector(".playnow span");
+        const liImg = li.querySelector(".playnow img");
+        if (liPlayNow && liSpan && liImg) {
+            const playing = liIsCurrent && isPlaying;
+            liSpan.textContent = playing ? "Pause" : "Play Now";
+            liImg.src = playing ? "IMG/pause.svg" : "IMG/play.svg";
+        }
+    });
+}
+
 function startCurrentSong() {
     if (!currentSong.src) return;
     const playRequest = currentSong.play();
     if (playRequest) {
         playRequest
-            .then(() => { document.querySelector("#play").src = "IMG/pause.svg"; })
-            .catch(() => { document.querySelector("#play").src = "IMG/play.svg"; });
+            .then(() => {
+                syncPlaybackUiState(currentSong.src ? decodeURI(currentSong.src.split("/").pop()) : null);
+            })
+            .catch(() => {
+                syncPlaybackUiState(currentSong.src ? decodeURI(currentSong.src.split("/").pop()) : null);
+            });
     }
 }
 
@@ -116,21 +156,25 @@ function renderSidebarList() {
     let songUL = document.querySelector(".songList").getElementsByTagName("ul")[0];
     songUL.innerHTML = "";
     for (const song of songs) {
-        songUL.innerHTML += `<li>
+        const isCurrent = currentSong.src && normalizeTrackName(currentSong.src) === normalizeTrackName(song);
+        const sidebarIcon = isCurrent && !currentSong.paused && !currentSong.ended ? "IMG/pause.svg" : "IMG/play.svg";
+        const sidebarText = isCurrent && !currentSong.paused && !currentSong.ended ? "Pause" : "Play Now";
+
+        songUL.innerHTML += `<li data-track="${encodeURIComponent(song)}">
             <img class="invert" width="34" src="IMG/music.svg" alt="">
             <div class="info">
                 <div>${trackDisplayName(song)}</div>
                 <div>${currFolder.split("/").pop()}</div>
             </div>
             <div class="playnow">
-                <span>Play Now</span>
-                <img class="invert" src="IMG/play.svg" alt="">
+                <span>${sidebarText}</span>
+                <img class="invert" src="${sidebarIcon}" alt="">
             </div>
         </li>`;
     }
 
     Array.from(document.querySelector(".songList").getElementsByTagName("li")).forEach((li, i) => {
-        li.addEventListener("click", () => playMusic(songs[i]));
+        li.addEventListener("click", () => toggleTrackPlayback(songs[i]));
     });
 }
 
@@ -142,13 +186,13 @@ async function playMusic(track, pause = false) {
         document.querySelector("#currentTime").innerHTML = "0:00";
         document.querySelector("#totalTime").innerHTML = "0:00";
         if (currFolder) {
-            setPlaybarArt(`/${currFolder}/cover.jpg`);
+            setPlaybarArt(`${currFolder}/cover.jpg`);
         }
         return;
     }
 
     const playbackFolder = currFolder;
-    const playbackSrc = `/${playbackFolder}/${track}`;
+    const playbackSrc = resolveAssetPath(`${playbackFolder}/${track}`);
     currentSong.src = playbackSrc;
     if (!pause) {
         startCurrentSong();
@@ -169,11 +213,45 @@ async function playMusic(track, pause = false) {
     highlightPlayingTrack(track);
 }
 
+function getTrackPlayIconMarkup(isPlaying = false) {
+    if (isPlaying) {
+        return `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 5h4v14H7zm6 0h4v14h-4z" fill="currentColor"/>
+            </svg>`;
+    }
+    return `
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M5 3L19 12L5 21V3Z" fill="currentColor"/>
+        </svg>`;
+}
+
+function normalizeTrackName(track) {
+    return decodeURI(String(track || "")).replace(/^\/+/, "").split("/").pop() || "";
+}
+
+function toggleTrackPlayback(track) {
+    if (!track) return;
+
+    const currentTrackName = currentSong.src ? normalizeTrackName(currentSong.src) : "";
+    const targetTrackName = normalizeTrackName(track);
+
+    if (currentTrackName === targetTrackName && currentSong.src) {
+        if (currentSong.paused || currentSong.ended) {
+            startCurrentSong();
+        } else {
+            currentSong.pause();
+        }
+        syncPlaybackUiState(targetTrackName);
+        return;
+    }
+
+    playMusic(track);
+}
+
 function highlightPlayingTrack(track) {
     // Album view rows
-    document.querySelectorAll(".track-row").forEach(row => {
-        row.classList.toggle("playing", row.dataset.track === track);
-    });
+    syncPlaybackUiState(track);
 }
 
 function currentIndex() {
@@ -183,18 +261,30 @@ function currentIndex() {
 
 function playNext() {
     if (!songs.length) return;
-    currentSong.pause();
+
     let index = currentIndex();
+    if (index < 0) {
+        playMusic(songs[0]);
+        return;
+    }
+
     if (isShuffle) {
         if (songs.length === 1) { playMusic(songs[0]); return; }
         let next;
         do { next = Math.floor(Math.random() * songs.length); } while (next === index);
         playMusic(songs[next]);
-    } else if (index + 1 < songs.length) {
+        return;
+    }
+
+    if (index + 1 < songs.length) {
         playMusic(songs[index + 1]);
-    } else if (isRepeat) {
+        return;
+    }
+
+    if (isRepeat) {
         playMusic(songs[0]);
     }
+    // If there is no next track and repeat is off, do nothing so the current track keeps playing.
 }
 
 function playPrevious() {
@@ -205,13 +295,21 @@ function playPrevious() {
         return;
     }
 
-    currentSong.pause();
     let index = currentIndex();
+    if (index < 0) {
+        playMusic(songs[0]);
+        return;
+    }
+
     if (index - 1 >= 0) {
         playMusic(songs[index - 1]);
-    } else if (isRepeat) {
+        return;
+    }
+
+    if (isRepeat) {
         playMusic(songs[songs.length - 1]);
     }
+    // If there is no previous track and repeat is off, do nothing so the current track keeps playing.
 }
 
 // ===================== ALBUM CARDS (home view) =====================
@@ -297,11 +395,7 @@ function renderTrackList(folder, meta) {
         row.innerHTML = `
             <div class="track-num-cell">
                 <span class="track-num">${i + 1}</span>
-                <span class="track-play-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                        <path d="M5 3L19 12L5 21V3Z" fill="currentColor"/>
-                    </svg>
-                </span>
+                <span class="track-play-icon">${getTrackPlayIconMarkup(false)}</span>
             </div>
             <div class="track-info">
                 <img class="track-thumb" src="${meta.cover}" alt="">
@@ -313,7 +407,7 @@ function renderTrackList(folder, meta) {
             <div class="track-duration">--:--</div>`;
 
         row.querySelector(".track-thumb").onerror = function () { this.onerror = null; this.src = "IMG/music.svg"; };
-        row.addEventListener("click", () => playMusic(song));
+        row.addEventListener("click", () => toggleTrackPlayback(song));
         list.appendChild(row);
 
         // Fetch duration lazily without blocking the render
@@ -367,7 +461,7 @@ async function main() {
             startCurrentSong();
         } else {
             currentSong.pause();
-            document.querySelector("#play").src = "IMG/play.svg";
+            syncPlaybackUiState(currentSong.src ? decodeURI(currentSong.src.split("/").pop()) : null);
         }
     });
 
@@ -389,8 +483,12 @@ async function main() {
 
     // Auto-advance when a track finishes (previously missing entirely)
     currentSong.addEventListener("ended", () => {
-        document.querySelector("#play").src = "IMG/play.svg";
+        syncPlaybackUiState(currentSong.src ? decodeURI(currentSong.src.split("/").pop()) : null);
         playNext();
+    });
+
+    currentSong.addEventListener("pause", () => {
+        syncPlaybackUiState(currentSong.src ? decodeURI(currentSong.src.split("/").pop()) : null);
     });
 
     // Sidebar open/close (mobile)
