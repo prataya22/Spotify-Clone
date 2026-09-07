@@ -3,7 +3,11 @@
         "folder": "sleep_songs",
         "title": "Sleep Songs",
         "description": "Songs for you",
-        "color": "#5038a0"
+        "color": "#5038a0",
+        "songs": [
+        "moonbeam-serenade.mp3",
+        "shadows-in-retreat.mp3"
+    ]
     },
     {
         "folder": "Diljit",
@@ -27,7 +31,11 @@
         "folder": "Chill_(mood)",
         "title": "Just Chill",
         "description": "Yes, Just Chill",
-        "color": "#1a6fa8"
+        "color": "#1a6fa8",
+        "songs": [
+            "midnight-jazz-cafe.mp3"
+    ]
+        
     },
     {
         "folder": "Dark_(mood)",

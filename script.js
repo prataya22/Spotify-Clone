@@ -103,57 +103,58 @@ function setVolume(value, volumeSlider, volumeIcon) {
     volumeIcon.src = volume > 0 ? "IMG/volume.svg" : "IMG/mute.svg";
 }
 
-async function getFolderMeta(folder) {
-    if (folderMetaCache.has(folder)) return folderMetaCache.get(folder);
-    let meta = {
-        title: folder.split("/").pop(),
-        description: "",
-        cover: "IMG/music.svg"
-    };
-    try {
-        const res = await fetch(`${folder}/info.json`);
-        if (res.ok) {
-            const data = await res.json();
-            meta = {
-                title: data.title || meta.title,
-                description: data.description || "",
-                cover: `${folder}/cover.jpg`
-            };
-        }
-    } catch (e) {
-        // no info.json for this folder (e.g. the default "ncs" queue) — fall back silently
+function getFolderMeta(folder) {
+    const folderName = folder.replace(/^Songs\//, "");
+
+    if (folderMetaCache.has(folder)) {
+        return folderMetaCache.get(folder);
     }
+
+    const album = catalogue.find(item => item.folder === folderName);
+
+    const meta = {
+        title: album?.title || folderName,
+        description: album?.description || "",
+        cover: `${folder}/cover.jpg`
+    };
+
     folderMetaCache.set(folder, meta);
     return meta;
 }
 
 // ===================== QUEUE LOADING =====================
-async function getSongs(folder) {
-    currFolder = folder;
-    songs = [];
+let catalogue = [];
+
+async function loadCatalogue() {
     try {
-        let a = await fetch(`${folder}/`);
-        if (!a.ok) throw new Error(`Failed to load folder: ${folder}`);
-        let response = await a.text();
-        let div = document.createElement("div");
-        div.innerHTML = response;
-        let as = div.getElementsByTagName("a");
-        for (let index = 0; index < as.length; index++) {
-            const element = as[index];
-            if (element.href.endsWith(".mp3")) {
-                songs.push(element.href.split(`/${folder}/`)[1]);
-            }
+        const response = await fetch("Songs/catalogue.json");
+
+        if (!response.ok) {
+            throw new Error("Failed to load catalogue");
         }
+
+        catalogue = await response.json();
     } catch (e) {
         console.error(e);
     }
+}
+
+async function getSongs(folder) {
+    currFolder = folder;
+
+    const folderName = folder.replace(/^Songs\//, "");
+
+    const album = catalogue.find(item => item.folder === folderName);
+
+    songs = album?.songs || [];
 
     renderSidebarList();
+
     return songs;
 }
 
 function renderSidebarList() {
-    let songUL = document.querySelector(".songList").getElementsByTagName("ul")[0];
+    const songUL = document.querySelector(".songList").getElementsByTagName("ul")[0];
     songUL.innerHTML = "";
     for (const song of songs) {
         const isCurrent = currentSong.src && normalizeTrackName(currentSong.src) === normalizeTrackName(song);
@@ -210,7 +211,7 @@ async function playMusic(track, pause = false) {
     document.querySelector("#songArtistDisplay").innerHTML = meta.title;
     setPlaybarArt(meta.cover);
 
-    highlightPlayingTrack(track);
+    syncPlaybackUiState(track);
 }
 
 function getTrackPlayIconMarkup(isPlaying = false) {
@@ -247,11 +248,6 @@ function toggleTrackPlayback(track) {
     }
 
     playMusic(track);
-}
-
-function highlightPlayingTrack(track) {
-    // Album view rows
-    syncPlaybackUiState(track);
 }
 
 function currentIndex() {
@@ -314,15 +310,8 @@ function playPrevious() {
 
 // ===================== ALBUM CARDS (home view) =====================
 async function displayAlbums() {
-    let cardContainer = document.querySelector(".cardContainer");
-    let albums = [];
-    try {
-        const response = await fetch("Songs/catalogue.json");
-        if (!response.ok) throw new Error("Failed to load Songs catalogue");
-        albums = await response.json();
-    } catch (e) {
-        console.error(e);
-    }
+    const cardContainer = document.querySelector(".cardContainer");
+    const albums = catalogue;
     cardContainer.innerHTML = "";
 
     for (const album of albums) {
@@ -446,10 +435,15 @@ async function renderView(state) {
 async function main() {
     window.history.replaceState({ view: "home" }, "", "#home");
     window.addEventListener("popstate", async (event) => {
-        await renderView(event.state || { view: "home" });
+        const state = event.state || { view: "home" };
+        viewIndex = Math.max(0, viewHistory.findIndex(view =>
+            view.view === state.view && view.folder === state.folder
+        ));
+        await renderView(state);
     });
     updateGreeting();
     setInterval(updateGreeting, 60 * 1000);
+    await loadCatalogue();
     await getSongs("Songs/sleep_songs");
     playMusic(songs[0], true);
     await displayAlbums();
@@ -545,11 +539,11 @@ async function main() {
     });
 
     // Album view: back to home, play-all, shuffle-play
-    document.querySelector("#navBackBtn").addEventListener("click", async () => {
+    document.querySelector("#navBackBtn").addEventListener("click", () => {
         if (window.history.state?.view === "album") window.history.back();
         else goHome();
     });
-    document.querySelector("#navFwdBtn").addEventListener("click", async () => {
+    document.querySelector("#navFwdBtn").addEventListener("click", () => {
         window.history.forward();
     });
     document.querySelector("#albumPlayAllBtn").addEventListener("click", () => {

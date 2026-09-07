@@ -833,14 +833,6 @@ body {
 }
 
 
-/* ===================== EXTRA PLAYBAR CONTROLS ===================== */
-.extra-controls {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    flex-shrink: 0;
-}
-
 .ctrl-icon {
     width: 20px;
     height: 20px;
