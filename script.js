@@ -71,13 +71,13 @@ async function getFolderMeta(folder) {
         cover: "IMG/music.svg"
     };
     try {
-        const res = await fetch(`/${folder}/info.json`);
+        const res = await fetch(`${folder}/info.json`);
         if (res.ok) {
             const data = await res.json();
             meta = {
                 title: data.title || meta.title,
                 description: data.description || "",
-                cover: `/${folder}/cover.jpg`
+                cover: `${folder}/cover.jpg`
             };
         }
     } catch (e) {
@@ -92,7 +92,7 @@ async function getSongs(folder) {
     currFolder = folder;
     songs = [];
     try {
-        let a = await fetch(`/${folder}/`);
+        let a = await fetch(`${folder}/`);
         if (!a.ok) throw new Error(`Failed to load folder: ${folder}`);
         let response = await a.text();
         let div = document.createElement("div");
@@ -217,25 +217,18 @@ function playPrevious() {
 // ===================== ALBUM CARDS (home view) =====================
 async function displayAlbums() {
     let cardContainer = document.querySelector(".cardContainer");
-    let anchors = [];
+    let albums = [];
     try {
-        let a = await fetch(`/Songs/`);
-        if (!a.ok) throw new Error("Failed to load Songs folder");
-        let response = await a.text();
-        let div = document.createElement("div");
-        div.innerHTML = response;
-        anchors = Array.from(div.getElementsByTagName("a"));
+        const response = await fetch("Songs/catalogue.json");
+        if (!response.ok) throw new Error("Failed to load Songs catalogue");
+        albums = await response.json();
     } catch (e) {
         console.error(e);
     }
     cardContainer.innerHTML = "";
 
-    for (const e of anchors) {
-        const folderPath = new URL(e.href).pathname;
-        if (folderPath === "/" || folderPath === "/Songs/" || folderPath === "/Songs" ||
-            folderPath.includes(".htaccess") || folderPath.endsWith(".json")) continue;
-
-        let folder = decodeURIComponent(folderPath.replace(/\/$/, "").split("/").pop());
+    for (const album of albums) {
+        const folder = album.folder;
         const meta = await getFolderMeta(`Songs/${folder}`);
 
         const card = document.createElement("div");
@@ -324,7 +317,7 @@ function renderTrackList(folder, meta) {
         list.appendChild(row);
 
         // Fetch duration lazily without blocking the render
-        const probe = new Audio(`/Songs/${folder}/${song}`);
+        const probe = new Audio(`Songs/${folder}/${song}`);
         probe.addEventListener("loadedmetadata", () => {
             row.querySelector(".track-duration").innerHTML = secondsToMinutesSeconds(probe.duration);
         });
@@ -363,7 +356,7 @@ async function main() {
     });
     updateGreeting();
     setInterval(updateGreeting, 60 * 1000);
-    await getSongs("Songs/ncs");
+    await getSongs("Songs/sleep_songs");
     playMusic(songs[0], true);
     await displayAlbums();
 
